@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C ↔ JS via WebAssembly · GNFS Factorizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-0: #07070d;
+      --bg-1: #0f1020;
+      --fg: #e7e9ff;
+      --muted: #8b8fb3;
+      --accent-a: #7c5cff;
+      --accent-b: #22d3ee;
+      --accent-c: #ff6ec7;
+      --ok: #4ade80;
+      --card: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.08);
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--fg);
+      background: var(--bg-0);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 2rem 1.25rem;
+      position: relative;
+    }
+
+    /* animated aurora background */
+    body::before,
+    body::after {
+      content: '';
+      position: fixed;
+      inset: -20%;
+      z-index: -2;
+      pointer-events: none;
+    }
+
+    body::before {
+      background:
+        radial-gradient(40% 40% at 20% 25%, rgba(124, 92, 255, 0.55), transparent 60%),
+        radial-gradient(35% 35% at 80% 20%, rgba(34, 211, 238, 0.45), transparent 60%),
+        radial-gradient(45% 45% at 70% 85%, rgba(255, 110, 199, 0.4), transparent 60%);
+      filter: blur(60px) saturate(140%);
+      animation: drift 18s ease-in-out infinite alternate;
+    }
+
+    body::after {
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+      opacity: 0.6;
+    }
+
+    @keyframes drift {
+      0%   { transform: translate3d(0, 0, 0) scale(1); }
+      50%  { transform: translate3d(-3%, 2%, 0) scale(1.08); }
+      100% { transform: translate3d(2%, -3%, 0) scale(1.03); }
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .hero {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+
+    .badge {
+      align-self: center;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.85rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      backdrop-filter: blur(12px);
+    }
+
+    .badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 12px var(--ok);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.4; }
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      background: linear-gradient(120deg, var(--fg) 0%, var(--accent-b) 50%, var(--accent-c) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 1.05rem;
+      max-width: 34rem;
+      margin: 0 auto;
+      line-height: 1.55;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: stretch;
+      flex-wrap: wrap;
+    }
+
+    .number-input {
+      flex: 1 1 220px;
+      padding: 0.95rem 1.15rem;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 1rem;
+      color: var(--fg);
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      letter-spacing: 0.03em;
+    }
+
+    .number-input::placeholder {
+      color: var(--muted);
+    }
+
+    .number-input:focus {
+      border-color: var(--accent-b);
+      box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.15);
+    }
+
+    .number-input::-webkit-outer-spin-button,
+    .number-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .number-input[type=number] {
+      -moz-appearance: textfield;
+    }
+
+    .label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+      display: block;
+    }
+
+    .test {
+      position: relative;
+      flex: 0 0 auto;
+      padding: 0.95rem 1.5rem;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      background: linear-gradient(120deg, var(--accent-a), var(--accent-b));
+      background-size: 200% 200%;
+      transition: transform 0.15s ease, box-shadow 0.25s ease, background-position 0.5s ease;
+      box-shadow: 0 10px 30px rgba(124, 92, 255, 0.35);
+      overflow: hidden;
+      letter-spacing: 0.02em;
+    }
+
+    .test:hover {
+      transform: translateY(-2px);
+      background-position: 100% 0;
+      box-shadow: 0 16px 40px rgba(124, 92, 255, 0.5);
+    }
+
+    .test:active {
+      transform: translateY(0);
+    }
+
+    .test::after {
+      content: '→';
+      margin-left: 0.55rem;
+      display: inline-block;
+      transition: transform 0.2s ease;
+    }
+
+    .test:hover::after {
+      transform: translateX(4px);
+    }
+
+    .console {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.1rem 1.2rem;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.9rem;
+      color: #c8ccef;
+      min-height: 140px;
+      max-height: 260px;
+      overflow-y: auto;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .console .prompt {
+      color: var(--accent-b);
+      margin-right: 0.4rem;
+    }
+
+    .console .ok {
+      color: var(--ok);
+    }
+
+    .console .accent {
+      color: var(--accent-c);
+      font-weight: 600;
+    }
+
+    .console:empty::before {
+      content: 'awaiting invocation…';
+      color: var(--muted);
+      font-style: italic;
+    }
+
+  </style>
+</head>
+
+<body>
+  <main class="shell">
+    <section class="hero">
+      <span class="badge"><span class="dot"></span> wasm · c ↔ js bridge</span>
+      <h1>GNFS Factorizer</h1>
+      <p class="subtitle">
+        A tiny playground calling into a C program compiled to WebAssembly.
+        Click the button to factor a number through the C runtime.
+      </p>
+    </section>
+
+    <section class="card">
+      <div>
+        <span class="label">Number to factor</span>
+        <div class="row">
+          <input class="number-input" id="number-input" type="number" min="2" placeholder="e.g. 14" value="14" />
+          <button class="test" id="run-btn">Factor</button>
+        </div>
+      </div>
+      <div>
+        <span class="label">Output</span>
+        <div class="console" id="console"></div>
+      </div>
+    </section>
+
+  </main>
+</body>
+<script src="./index.js" type="module"></script>
+
+</html>
