@@ -1,20 +1,21 @@
+<!-- index.html — Interface do Mandelbrot Explorer (HTML/CSS) -->
+<!-- Canvas pro fractal, controles (slider + reset), e barra de info -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>C ↔ JS via WebAssembly · GNFS Factorizer</title>
+  <meta name="description" content="Visualizador interativo do Fractal de Mandelbrot usando C compilado para WebAssembly e JavaScript para a interface.">
+  <title>Mandelbrot Explorer · C ↔ JS via WebAssembly</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
     rel="stylesheet">
+
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
       --bg-0: #07070d;
@@ -29,9 +30,7 @@
       --border: rgba(255, 255, 255, 0.08);
     }
 
-    html, body {
-      height: 100%;
-    }
+    html, body { height: 100%; }
 
     body {
       font-family: 'Inter', system-ui, sans-serif;
@@ -45,9 +44,8 @@
       position: relative;
     }
 
-    /* animated aurora background */
-    body::before,
-    body::after {
+    /* Fundo animado aurora */
+    body::before, body::after {
       content: '';
       position: fixed;
       inset: -20%;
@@ -81,7 +79,7 @@
 
     .shell {
       width: 100%;
-      max-width: 720px;
+      max-width: 860px;
       display: flex;
       flex-direction: column;
       gap: 1.5rem;
@@ -111,8 +109,7 @@
     }
 
     .badge .dot {
-      width: 8px;
-      height: 8px;
+      width: 8px; height: 8px;
       border-radius: 50%;
       background: var(--ok);
       box-shadow: 0 0 12px var(--ok);
@@ -138,7 +135,7 @@
     .subtitle {
       color: var(--muted);
       font-size: 1.05rem;
-      max-width: 34rem;
+      max-width: 38rem;
       margin: 0 auto;
       line-height: 1.55;
     }
@@ -147,170 +144,201 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 2rem;
+      padding: 1.25rem;
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
     }
 
-    .row {
+    #fractal-canvas {
+      width: 100%;
+      display: block;
+      border-radius: 14px;
+      cursor: crosshair;
+    }
+
+    .controls {
       display: flex;
-      gap: 0.75rem;
-      align-items: stretch;
+      align-items: center;
+      gap: 1rem;
       flex-wrap: wrap;
+      padding: 1.25rem;
     }
 
-    .number-input {
-      flex: 1 1 220px;
-      padding: 0.95rem 1.15rem;
-      font-family: 'JetBrains Mono', ui-monospace, monospace;
-      font-size: 1rem;
-      color: var(--fg);
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      outline: none;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-      letter-spacing: 0.03em;
-    }
-
-    .number-input::placeholder {
-      color: var(--muted);
-    }
-
-    .number-input:focus {
-      border-color: var(--accent-b);
-      box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.15);
-    }
-
-    .number-input::-webkit-outer-spin-button,
-    .number-input::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-
-    .number-input[type=number] {
-      -moz-appearance: textfield;
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
     }
 
     .label {
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       text-transform: uppercase;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.12em;
       color: var(--muted);
-      margin-bottom: 0.6rem;
-      display: block;
+      white-space: nowrap;
     }
 
-    .test {
-      position: relative;
-      flex: 0 0 auto;
-      padding: 0.95rem 1.5rem;
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 160px;
+      height: 6px;
+      background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 3px rgba(124,92,255,0.3);
+      cursor: grab;
+      transition: box-shadow 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4), 0 0 0 5px rgba(124,92,255,0.4);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: white;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 3px rgba(124,92,255,0.3);
+      cursor: grab;
+    }
+
+    .iter-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--accent-b);
+      min-width: 3ch;
+      text-align: right;
+    }
+
+    .btn {
+      padding: 0.6rem 1.2rem;
       font-family: inherit;
-      font-size: 1rem;
+      font-size: 0.82rem;
       font-weight: 600;
       color: white;
       border: none;
-      border-radius: 12px;
+      border-radius: 10px;
       cursor: pointer;
       background: linear-gradient(120deg, var(--accent-a), var(--accent-b));
       background-size: 200% 200%;
       transition: transform 0.15s ease, box-shadow 0.25s ease, background-position 0.5s ease;
-      box-shadow: 0 10px 30px rgba(124, 92, 255, 0.35);
-      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(124, 92, 255, 0.3);
       letter-spacing: 0.02em;
+      text-transform: uppercase;
     }
 
-    .test:hover {
+    .btn:hover {
       transform: translateY(-2px);
       background-position: 100% 0;
-      box-shadow: 0 16px 40px rgba(124, 92, 255, 0.5);
+      box-shadow: 0 10px 30px rgba(124, 92, 255, 0.45);
     }
 
-    .test:active {
-      transform: translateY(0);
+    .btn:active { transform: translateY(0); }
+
+    .info-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.9rem 1.25rem;
+      flex-wrap: wrap;
     }
 
-    .test::after {
-      content: '→';
-      margin-left: 0.55rem;
-      display: inline-block;
-      transition: transform 0.2s ease;
-    }
-
-    .test:hover::after {
-      transform: translateX(4px);
-    }
-
-    .console {
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.1rem 1.2rem;
-      font-family: 'JetBrains Mono', ui-monospace, monospace;
-      font-size: 0.9rem;
-      color: #c8ccef;
-      min-height: 140px;
-      max-height: 260px;
-      overflow-y: auto;
-      line-height: 1.65;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .console .prompt {
-      color: var(--accent-b);
-      margin-right: 0.4rem;
-    }
-
-    .console .ok {
-      color: var(--ok);
-    }
-
-    .console .accent {
-      color: var(--accent-c);
-      font-weight: 600;
-    }
-
-    .console:empty::before {
-      content: 'awaiting invocation…';
+    .info-item {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
       color: var(--muted);
-      font-style: italic;
     }
 
+    .info-item .value { color: var(--accent-b); }
+
+    #status { color: var(--ok); }
+    #status.computing {
+      color: var(--accent-c);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .hint {
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--muted);
+      opacity: 0.7;
+    }
+
+    .hint kbd {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+    }
+
+    @media (max-width: 600px) {
+      .controls { flex-direction: column; align-items: flex-start; }
+      .info-bar { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+      input[type="range"] { width: 120px; }
+    }
   </style>
 </head>
 
 <body>
   <main class="shell">
+
     <section class="hero">
       <span class="badge"><span class="dot"></span> wasm · c ↔ js bridge</span>
-      <h1>GNFS Factorizer</h1>
+      <h1>Mandelbrot Explorer</h1>
       <p class="subtitle">
-        A tiny playground calling into a C program compiled to WebAssembly.
-        Click the button to factor a number through the C runtime.
+        Fractal de Mandelbrot computado em <strong>C</strong> (via WebAssembly)
+        e renderizado em <strong>JavaScript</strong> no canvas.
+        Explore o conjunto com zoom e navegação interativos.
       </p>
     </section>
 
-    <section class="card">
-      <div>
-        <span class="label">Number to factor</span>
-        <div class="row">
-          <input class="number-input" id="number-input" type="number" min="2" placeholder="e.g. 14" value="14" />
-          <button class="test" id="run-btn">Factor</button>
-        </div>
-      </div>
-      <div>
-        <span class="label">Output</span>
-        <div class="console" id="console"></div>
-      </div>
+    <!-- Canvas onde o JS pinta os pixels calculados pelo C -->
+    <section class="card" id="canvas-card">
+      <canvas id="fractal-canvas" width="800" height="600"></canvas>
     </section>
 
+    <!-- Controles: slider de iterações e reset -->
+    <section class="card controls">
+      <div class="control-group">
+        <span class="label">Iterações</span>
+        <input type="range" id="iter-slider" min="50" max="1000" step="10" value="200">
+        <span class="iter-display" id="iter-value">200</span>
+      </div>
+      <div style="flex: 1;"></div>
+      <button class="btn" id="reset-btn">Reset</button>
+    </section>
+
+    <!-- Info: coordenadas, zoom, status -->
+    <section class="card info-bar">
+      <span class="info-item" id="coords">Center: (-0.50000000, 0.00000000)</span>
+      <span class="info-item" id="zoom-level">Zoom: 1.0x</span>
+      <span class="info-item" id="status">loading wasm…</span>
+    </section>
+
+    <p class="hint">
+      <kbd>Scroll</kbd> zoom &nbsp;·&nbsp;
+      <kbd>Drag</kbd> navegar &nbsp;·&nbsp;
+      <kbd>Slider</kbd> ajustar detalhe
+    </p>
+
   </main>
+
+  <script src="./index.js" type="module"></script>
 </body>
-<script src="./index.js" type="module"></script>
 
 </html>
